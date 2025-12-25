@@ -24,6 +24,15 @@ export const uploadVideo = async (formData) => {
 };
 
 /**
+ * Get all videos
+ * @returns {Promise} Array of videos
+ */
+export const getAllVideos = async () => {
+  const response = await api.get('/all');
+  return response.data.data;
+};
+
+/**
  * Get video status by ID
  * @param {string} videoId - Video ID
  * @returns {Promise} Video object

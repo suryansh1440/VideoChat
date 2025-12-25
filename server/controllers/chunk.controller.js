@@ -101,39 +101,22 @@ export const chunkTranscript = (segments) => {
  * - Persists chunks into Chunk collection
  */
 export const generateChunks = async (videoId) => {
-  console.log(`\n📦 [CHUNKS] Starting chunk generation for videoId: ${videoId}`);
-  
   if (!videoId) {
     throw new Error("videoId is required to generate chunks");
   }
 
-  console.log(`🔍 [CHUNKS] Fetching transcript segments from database...`);
   const segments = await Transcript.find({ videoId }).sort({ start: 1 }).lean();
 
   if (!segments.length) {
     throw new Error("No transcript segments found for chunking");
   }
 
-  console.log(`📊 [CHUNKS] Found ${segments.length} transcript segments`);
-  const totalWords = segments.reduce((sum, seg) => {
-    return sum + (seg.text?.trim().split(/\s+/).length || 0);
-  }, 0);
-  console.log(`📝 [CHUNKS] Total words in transcript: ${totalWords}`);
-
-  // Use chunkTranscript to create chunks
-  console.log(`🔄 [CHUNKS] Processing chunks (MIN: ${MIN_WORDS} words, MAX: ${MAX_WORDS} words)...`);
   const chunked = chunkTranscript(segments);
 
   if (!chunked.length) {
     throw new Error("Chunking produced no chunks");
   }
 
-  console.log(`✅ [CHUNKS] Created ${chunked.length} chunks`);
-  chunked.forEach((chunk, index) => {
-    console.log(`   📄 Chunk ${index + 1}: ${chunk.wordCount} words (${chunk.start.toFixed(2)}s - ${chunk.end.toFixed(2)}s)`);
-  });
-
-  // Format chunks for database (remove wordCount, add videoId)
   const chunks = chunked.map((chunk) => ({
     videoId,
     start: chunk.start,
@@ -141,10 +124,8 @@ export const generateChunks = async (videoId) => {
     text: chunk.text.trim()
   }));
 
-  console.log(`💾 [CHUNKS] Saving chunks to database...`);
   await Chunk.deleteMany({ videoId });
   const created = await Chunk.insertMany(chunks);
-  console.log(`✅ [CHUNKS] Successfully saved ${created.length} chunks to database\n`);
   
   return created;
 };

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { uploadVideo, getVideoStatus, getSummary } from '../api/videoApi';
+import { uploadVideo, getAllVideos, getVideoStatus, getSummary } from '../api/videoApi';
 
 export const useVideoStore = create((set, get) => ({
   // State
@@ -9,11 +9,13 @@ export const useVideoStore = create((set, get) => ({
   
   // Loading states
   isUploading: false,
+  isFetchingVideos: false,
   isFetchingStatus: false,
   isGeneratingSummary: false,
   
   // Error states
   uploadError: null,
+  fetchVideosError: null,
   statusError: null,
   summaryError: null,
 
@@ -35,6 +37,26 @@ export const useVideoStore = create((set, get) => ({
       set({ 
         isUploading: false, 
         uploadError: errorMessage 
+      });
+      return { success: false, error: errorMessage };
+    }
+  },
+
+  fetchAllVideos: async () => {
+    set({ isFetchingVideos: true, fetchVideosError: null });
+    try {
+      const videos = await getAllVideos();
+      set({ 
+        videos: videos,
+        isFetchingVideos: false, 
+        fetchVideosError: null 
+      });
+      return { success: true, data: videos };
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch videos';
+      set({ 
+        isFetchingVideos: false, 
+        fetchVideosError: errorMessage 
       });
       return { success: false, error: errorMessage };
     }
@@ -93,7 +115,8 @@ export const useVideoStore = create((set, get) => ({
 
   clearErrors: () => {
     set({ 
-      uploadError: null, 
+      uploadError: null,
+      fetchVideosError: null,
       statusError: null, 
       summaryError: null 
     });

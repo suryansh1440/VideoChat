@@ -115,53 +115,26 @@ async function transcribeVideo(videoUrl) {
   const startTime = Date.now();
 
   try {
-    // 1) Download video from Cloudinary
-    console.log(`⬇️  [TRANSCRIPT] Step 1/4: Downloading video from Cloudinary...`);
-    const downloadStart = Date.now();
     videoPath = await downloadToTempFile(videoUrl, "mp4");
-    const downloadTime = ((Date.now() - downloadStart) / 1000).toFixed(2);
-    console.log(`✅ [TRANSCRIPT] Video downloaded to: ${videoPath} (${downloadTime}s)`);
-
-    // 2) Extract audio
-    console.log(`🎵 [TRANSCRIPT] Step 2/4: Extracting audio using ffmpeg...`);
     audioPath = path.join(
       os.tmpdir(),
       `videochat-audio-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`
     );
-    const extractStart = Date.now();
     await extractAudio(videoPath, audioPath);
-    const extractTime = ((Date.now() - extractStart) / 1000).toFixed(2);
-    console.log(`✅ [TRANSCRIPT] Audio extracted to: ${audioPath} (${extractTime}s)`);
-
-    // 3) Send audio to Whisper (returns segments directly)
-    console.log(`🤖 [TRANSCRIPT] Step 3/4: Sending audio to OpenAI Whisper API...`);
-    const whisperStart = Date.now();
     const whisperSegments = await transcribeAudioFile(audioPath);
-    const whisperTime = ((Date.now() - whisperStart) / 1000).toFixed(2);
-    console.log(`✅ [TRANSCRIPT] Whisper API returned ${whisperSegments?.length || 0} segments (${whisperTime}s)`);
-
-    // 4) Process and format segments
-    console.log(`🔄 [TRANSCRIPT] Step 4/4: Processing segments...`);
     const segments = processSegments(whisperSegments);
-    const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`✅ [TRANSCRIPT] Transcription complete! ${segments.length} segments processed (Total: ${totalTime}s)`);
-    
     return segments;
   } catch (error) {
-    const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.error(`❌ [TRANSCRIPT] Transcription failed after ${totalTime}s:`, error.message);
+    console.error("Transcription failed:", error.message);
     throw error;
   } finally {
-    // 5) Cleanup temp files (best-effort)
-    console.log(`🧹 [TRANSCRIPT] Cleaning up temporary files...`);
     const toDelete = [videoPath, audioPath].filter(Boolean);
     await Promise.all(
       toDelete.map(async (p) => {
         try {
           await fs.promises.unlink(p);
-          console.log(`🗑️  [TRANSCRIPT] Deleted: ${p}`);
         } catch (err) {
-          console.warn(`⚠️  [TRANSCRIPT] Failed to delete ${p}:`, err.message);
+          // Silent cleanup failure
         }
       })
     );
@@ -176,8 +149,6 @@ async function transcribeVideo(videoUrl) {
  * - Persists segments into Transcript collection
  */
 export const generateTranscript = async (videoId) => {
-  console.log(`\n📝 [TRANSCRIPT] Starting transcript generation for videoId: ${videoId}`);
-  
   if (!videoId) {
     throw new Error("videoId is required to generate transcript");
   }
@@ -187,16 +158,11 @@ export const generateTranscript = async (videoId) => {
     throw new Error("Video not found");
   }
 
-  console.log(`📹 [TRANSCRIPT] Video found: "${video.title}"`);
-  console.log(`🔗 [TRANSCRIPT] Downloading video from: ${video.videoUrl}`);
-
   let segments;
   try {
-    console.log(`🎤 [TRANSCRIPT] Calling transcription service...`);
     segments = await transcribeVideo(video.videoUrl);
-    console.log(`✅ [TRANSCRIPT] Received ${segments?.length || 0} segments from transcription service`);
   } catch (err) {
-    console.error(`❌ [TRANSCRIPT] Transcription service error:`, err.message);
+    console.error("Transcription service error:", err.message);
     throw new Error(`Transcription failed: ${err.message}`);
   }
 
@@ -204,7 +170,6 @@ export const generateTranscript = async (videoId) => {
     throw new Error("Transcription provider returned no segments");
   }
 
-  console.log(`🔍 [TRANSCRIPT] Processing ${segments.length} segments...`);
   const docs = segments
     .filter(
       (seg) =>
@@ -225,10 +190,8 @@ export const generateTranscript = async (videoId) => {
     throw new Error("No valid transcript segments to store");
   }
 
-  console.log(`💾 [TRANSCRIPT] Saving ${docs.length} valid segments to database...`);
   await Transcript.deleteMany({ videoId: video._id });
   const created = await Transcript.insertMany(docs);
-  console.log(`✅ [TRANSCRIPT] Successfully saved ${created.length} transcript segments`);
   
   return created;
 };

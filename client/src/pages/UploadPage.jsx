@@ -6,7 +6,6 @@ const UploadPage = () => {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [duration, setDuration] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const handleFileChange = (e) => {
@@ -33,16 +32,10 @@ const UploadPage = () => {
       return;
     }
 
-    if (!duration || isNaN(Number(duration)) || Number(duration) <= 0) {
-      alert('Please enter a valid duration in seconds');
-      return;
-    }
-
     const formData = new FormData();
     formData.append('file', file);
     formData.append('title', title);
     formData.append('description', description);
-    formData.append('duration', duration);
 
     const result = await uploadVideo(formData);
 
@@ -51,7 +44,6 @@ const UploadPage = () => {
       setFile(null);
       setTitle('');
       setDescription('');
-      setDuration('');
       // Reset file input
       e.target.reset();
     }
@@ -62,7 +54,7 @@ const UploadPage = () => {
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Upload Video</h1>
-          <p className="text-gray-600 mb-8">Upload a video to start processing and generating transcripts</p>
+          <p className="text-gray-600 mb-8">Upload a video to start processing. Duration will be extracted automatically.</p>
 
           {uploadSuccess && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -123,24 +115,6 @@ const UploadPage = () => {
                 placeholder="Enter video description (optional)"
                 disabled={isUploading}
               />
-            </div>
-
-            <div>
-              <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
-                Duration (seconds) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="duration"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., 120"
-                min="1"
-                disabled={isUploading}
-                required
-              />
-              <p className="mt-1 text-sm text-gray-500">Enter the video duration in seconds</p>
             </div>
 
             <button

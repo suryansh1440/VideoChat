@@ -293,7 +293,8 @@ VideoChat/
 │   ├── lib/                  # Utilities
 │   │   ├── db.js
 │   │   ├── cloudinary.js
-│   │   └── multer.js
+│   │   ├── multer.js
+│   │   └── videoMetadata.js
 │   ├── scripts/              # Utility scripts
 │   │   └── reset-queue.js
 │   └── index.js              # Server entry point
@@ -325,8 +326,8 @@ VideoChat/
 FormData {
   file: File,           // Video file
   title: string,       // Video title
-  description: string,  // Optional description
-  duration: number     // Duration in seconds
+  description: string   // Optional description
+  // Duration is extracted automatically from the video file
 }
 ```
 

@@ -1,9 +1,24 @@
 import { useState } from 'react';
 import UploadPage from './pages/UploadPage';
-import SummaryPage from './pages/SummaryPage';
+import AllVideosPage from './pages/AllVideosPage';
+import VideoPlayerPage from './pages/VideoPlayerPage';
 
 const App = () => {
-  const [activeTab, setActiveTab] = useState('upload');
+  const [activeTab, setActiveTab] = useState('videos');
+  const [selectedVideo, setSelectedVideo] = useState(null);
+
+  const handleVideoSelect = (video) => {
+    setSelectedVideo(video);
+  };
+
+  const handleBackToVideos = () => {
+    setSelectedVideo(null);
+  };
+
+  // If a video is selected, show the video player
+  if (selectedVideo) {
+    return <VideoPlayerPage video={selectedVideo} onBack={handleBackToVideos} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -16,24 +31,24 @@ const App = () => {
             </div>
             <div className="flex space-x-1">
               <button
-                onClick={() => setActiveTab('upload')}
+                onClick={() => setActiveTab('videos')}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'upload'
+                  activeTab === 'videos'
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                Upload Video
+                All Videos
               </button>
               <button
-                onClick={() => setActiveTab('summary')}
+                onClick={() => setActiveTab('upload')}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'summary'
-                    ? 'bg-purple-600 text-white'
+                  activeTab === 'upload'
+                    ? 'bg-green-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                Generate Summary
+                Upload Video
               </button>
             </div>
           </div>
@@ -42,8 +57,8 @@ const App = () => {
 
       {/* Page Content */}
       <main>
+        {activeTab === 'videos' && <AllVideosPage onVideoSelect={handleVideoSelect} />}
         {activeTab === 'upload' && <UploadPage />}
-        {activeTab === 'summary' && <SummaryPage />}
       </main>
     </div>
   );
