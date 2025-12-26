@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1/video';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://3.84.16.73/api/v1/video';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
