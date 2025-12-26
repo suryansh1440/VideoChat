@@ -9,6 +9,7 @@
     "worker": "node workers/video.worker.js",
     "dev:worker": "nodemon workers/video.worker.js",
     "reset-queue": "node scripts/reset-queue.js",
+    "clear-db:force": "node scripts/clear-database.js --force",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

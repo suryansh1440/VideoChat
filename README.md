@@ -20,10 +20,12 @@
 - 🎬 **Video Upload** - Upload videos to Cloudinary with metadata
 - 🎤 **Automatic Transcription** - OpenAI Whisper API for accurate transcript generation
 - 📝 **Semantic Chunking** - Intelligent text segmentation (80-140 words per chunk)
+- 🔍 **Vector Search** - MongoDB Atlas vector search for semantic similarity
+- 💬 **AI Chat** - Ask questions about video content with context-aware answers
 - 🤖 **AI Summaries** - Google Gemini-powered summaries (short/medium/detailed)
 - ⚡ **Background Processing** - BullMQ queue system for async video processing
 - 💾 **Smart Caching** - Summary caching to reduce API calls
-- 🎨 **Modern UI** - Beautiful React + Tailwind CSS interface
+- 🎨 **Modern UI** - Beautiful React + Tailwind CSS interface with chat modal
 
 ---
 
@@ -181,7 +183,7 @@ sequenceDiagram
 ### Prerequisites
 
 - **Node.js** v18+ 
-- **MongoDB** (local or Atlas)
+- **MongoDB Atlas** (required for vector search)
 - **Redis** (for BullMQ)
 - **FFmpeg** (for audio extraction)
 - **API Keys**: OpenAI, Google Gemini, Cloudinary
@@ -227,6 +229,7 @@ GOOGLE_GENERATIVE_AI_API_KEY=your_google_key
 # Optional
 PORT=3000
 CLEAN_QUEUE_ON_STARTUP=false
+FRONTEND_URL=http://localhost:5173
 ```
 
 **Client** (`client/.env`):
@@ -267,6 +270,29 @@ npm run check-ffmpeg
 # Check Redis (should see worker connected)
 ```
 
+### Setup Vector Search Index
+
+**Important:** Before using the chat feature, you must create a vector search index in MongoDB Atlas.
+
+See [VECTOR_INDEX_SETUP.md](./VECTOR_INDEX_SETUP.md) for detailed instructions.
+
+Quick setup:
+1. Go to MongoDB Atlas → Search → Create Search Index
+2. Use JSON Editor and paste the configuration from `VECTOR_INDEX_SETUP.md`
+3. Name it `vector_index` and select your `chunks` collection
+4. Wait for the index to become active
+
+### Generate Embeddings for Existing Chunks
+
+If you have existing chunks without embeddings, run:
+
+```bash
+cd server
+node scripts/generate-embeddings.js [videoId]
+```
+
+Omit `videoId` to process all chunks without embeddings.
+
 ---
 
 ## 📁 Project Structure
@@ -278,25 +304,30 @@ VideoChat/
 │   │   ├── video.controller.js
 │   │   ├── transcript.controller.js
 │   │   ├── chunk.controller.js
-│   │   └── summary.controller.js
+│   │   ├── summary.controller.js
+│   │   └── chat.controller.js
 │   ├── modals/               # Mongoose models
 │   │   ├── video.modal.js
 │   │   ├── transcript.modal.js
 │   │   ├── chunk.modal.js
-│   │   └── summery.modal.js
+│   │   ├── summery.modal.js
+│   │   └── chat.modal.js
 │   ├── routes/               # Express routes
 │   │   └── video.routes.js
 │   ├── queue/                # BullMQ queue
 │   │   └── video.queue.js
 │   ├── workers/              # Background workers
 │   │   └── video.worker.js
-│   ├── lib/                  # Utilities
-│   │   ├── db.js
-│   │   ├── cloudinary.js
-│   │   ├── multer.js
-│   │   └── videoMetadata.js
-│   ├── scripts/              # Utility scripts
-│   │   └── reset-queue.js
+    │   ├── lib/                  # Utilities
+    │   │   ├── db.js
+    │   │   ├── cloudinary.js
+    │   │   ├── multer.js
+    │   │   ├── videoMetadata.js
+    │   │   └── embeddings.js
+    │   ├── scripts/              # Utility scripts
+    │   │   ├── reset-queue.js
+    │   │   ├── generate-embeddings.js
+    │   │   └── clear-database.js
 │   └── index.js              # Server entry point
 │
 └── client/                    # Frontend (React + Vite)
@@ -305,6 +336,7 @@ VideoChat/
     │   │   ├── UploadPage.jsx
     │   │   └── SummaryPage.jsx
     │   ├── components/       # React components
+    │   │   └── ChatModal.jsx
     │   ├── store/            # Zustand stores
     │   │   └── useVideoStore.js
     │   ├── api/              # API client
@@ -389,6 +421,74 @@ FormData {
 }
 ```
 
+### Chat with Video
+
+**Endpoint:** `POST /api/v1/video/chat`
+
+**Request:**
+```json
+{
+  "videoId": "video_id",
+  "question": "Explain backpropagation in this video"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Chat response generated successfully",
+  "data": {
+    "answer": "Backpropagation is a method used to train neural networks...",
+    "timestamps": [
+      {
+        "start": 120.5,
+        "end": 145.2,
+        "formatted": "2:00 - 2:25"
+      }
+    ],
+    "chunks": [
+      {
+        "start": 120.5,
+        "end": 145.2,
+        "text": "Chunk text content..."
+      }
+    ]
+  }
+}
+```
+
+### Get Chat History
+
+**Endpoint:** `GET /api/v1/video/:videoId/chat`
+
+**Response:**
+```json
+{
+  "message": "Chat history retrieved successfully",
+  "data": [
+    {
+      "_id": "chat_id",
+      "videoId": "video_id",
+      "question": "What is machine learning?",
+      "answer": "Machine learning is...",
+      "chunks": [...],
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+### Delete Chat History
+
+**Endpoint:** `DELETE /api/v1/video/:videoId/chat`
+
+**Response:**
+```json
+{
+  "message": "Chat history deleted successfully"
+}
+```
+
 ---
 
 ## 🛠️ Available Scripts
@@ -401,6 +501,8 @@ npm start            # Start server (production)
 npm run worker       # Start worker process
 npm run dev:worker   # Start worker with nodemon
 npm run reset-queue  # Reset/clear queue
+npm run clear-db     # Clear all database data (with confirmation)
+npm run clear-db:force # Clear all database data (skip confirmation)
 npm run check-ffmpeg # Verify FFmpeg installation
 ```
 
@@ -452,8 +554,9 @@ The reset script shows:
 4. **Extract Audio** → FFmpeg extracts audio track
 5. **Transcribe** → OpenAI Whisper generates transcript segments
 6. **Chunk** → Semantic chunking (80-140 words, topic detection)
-7. **Store** → Transcripts and chunks saved to MongoDB
-8. **Ready** → Video status updated to "ready"
+7. **Embed** → Generate embeddings for all chunks using OpenAI
+8. **Store** → Transcripts and chunks (with embeddings) saved to MongoDB
+9. **Ready** → Video status updated to "ready"
 
 ### Chunking Logic
 
@@ -536,6 +639,23 @@ npm run reset-queue
   start: Number,    // seconds
   end: Number,      // seconds
   text: String,
+  embedding: [Number],  // 1536-dimensional vector
+  createdAt: Date
+}
+```
+
+### Chat
+```javascript
+{
+  videoId: ObjectId,
+  question: String,
+  answer: String,
+  chunks: [{
+    chunkId: ObjectId,
+    start: Number,
+    end: Number,
+    text: String
+  }],
   createdAt: Date
 }
 ```
@@ -563,10 +683,11 @@ npm run reset-queue
 | `CLOUDDINARY_CLOUD_NAME` | Cloudinary cloud name | ✅ | - |
 | `CLOUDDINARY_API_KEY` | Cloudinary API key | ✅ | - |
 | `CLOUDDINARY_API_SECRET` | Cloudinary API secret | ✅ | - |
-| `OPENAI_API_KEY` | OpenAI API key (Whisper) | ✅ | - |
+| `OPENAI_API_KEY` | OpenAI API key (Whisper + Embeddings) | ✅ | - |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini API key | ✅ | - |
 | `PORT` | Server port | ❌ | `3000` |
 | `CLEAN_QUEUE_ON_STARTUP` | Auto-clean queue | ❌ | `false` |
+| `FRONTEND_URL` | Frontend URL for CORS | ❌ | `http://localhost:5173` |
 | `VITE_API_URL` | API base URL (client) | ❌ | `http://localhost:3000/api/v1/video` |
 
 ---
@@ -582,8 +703,9 @@ npm run reset-queue
 - **Redis** - Queue storage
 - **Cloudinary** - Video storage
 - **Multer** - File upload handling
-- **OpenAI** - Whisper transcription
+- **OpenAI** - Whisper transcription + Embeddings
 - **Google Gemini** - AI summarization
+- **MongoDB Atlas** - Vector search for semantic similarity
 
 ### Frontend
 - **React** - UI framework

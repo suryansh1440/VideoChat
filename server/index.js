@@ -11,8 +11,15 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// CORS configuration - allow frontend URL from environment or default to localhost
+const allowedOrigins = [
+    "http://localhost:5173",
+    "https://localhost:5173",
+    process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
-    origin: ["http://localhost:5173", "https://localhost:5173"],
+    origin: allowedOrigins,
     credentials: true
 }));
 
@@ -25,7 +32,7 @@ app.get("/", (req, res) => {
 
 connectDB().then(() => {
     app.listen(PORT, () => {
-        console.log("Server is running on port 3000");
+        console.log(`Server is running on port ${PORT}`);
     });
 }).catch((error) => {
     console.log(error);

@@ -58,5 +58,39 @@ export const getSummary = async (videoId, timestamp, type = 'medium') => {
   return response.data;
 };
 
+/**
+ * Chat with video using vector search
+ * @param {string} videoId - Video ID
+ * @param {string} question - User question
+ * @returns {Promise} Chat response with answer and timestamps
+ */
+export const chatWithVideo = async (videoId, question) => {
+  const response = await api.post('/chat', {
+    videoId,
+    question,
+  });
+  return response.data;
+};
+
+/**
+ * Get chat history for a video
+ * @param {string} videoId - Video ID
+ * @returns {Promise} Array of chat messages
+ */
+export const getChatHistory = async (videoId) => {
+  const response = await api.get(`/${videoId}/chat`);
+  return response.data.data;
+};
+
+/**
+ * Delete chat history for a video
+ * @param {string} videoId - Video ID
+ * @returns {Promise} Success response
+ */
+export const deleteChatHistory = async (videoId) => {
+  const response = await api.delete(`/${videoId}/chat`);
+  return response.data;
+};
+
 export default api;
 

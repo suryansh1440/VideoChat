@@ -1,5 +1,6 @@
 import Transcript from "../modals/transcript.modal.js";
 import Chunk from "../modals/chunk.modal.js";
+import { generateEmbeddingsBatch } from "../lib/embeddings.js";
 
 const TOPIC_PHRASES = [
   "now let's",
@@ -124,9 +125,21 @@ export const generateChunks = async (videoId) => {
     text: chunk.text.trim()
   }));
 
+  // Generate embeddings for all chunks
+  console.log(`Generating embeddings for ${chunks.length} chunks...`);
+  const texts = chunks.map(c => c.text);
+  const embeddings = await generateEmbeddingsBatch(texts);
+
+  // Add embeddings to chunks
+  const chunksWithEmbeddings = chunks.map((chunk, index) => ({
+    ...chunk,
+    embedding: embeddings[index]
+  }));
+
   await Chunk.deleteMany({ videoId });
-  const created = await Chunk.insertMany(chunks);
+  const created = await Chunk.insertMany(chunksWithEmbeddings);
   
+  console.log(`Successfully created ${created.length} chunks with embeddings`);
   return created;
 };
 
