@@ -5,15 +5,21 @@ import ChatInterface from '../components/ChatInterface';
 const VideoPlayerPage = ({ video, onBack }) => {
   const { generateSummary, summary, isGeneratingSummary, summaryError } = useVideoStore();
   const videoRef = useRef(null);
+  const activeViewRef = useRef(null);
+  const pauseTimeoutRef = useRef(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [summaryType, setSummaryType] = useState('medium');
   const [activeView, setActiveView] = useState(null); // 'summary' or 'chat' or null
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    activeViewRef.current = activeView;
+  }, [activeView]);
 
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
-    let pauseTimeout = null;
     let hasGeneratedSummaryForPause = false;
 
     const updateTime = () => {
@@ -30,25 +36,27 @@ const VideoPlayerPage = ({ video, onBack }) => {
 
     const handleVideoPause = () => {
       // Clear any existing timeout
-      if (pauseTimeout) {
-        clearTimeout(pauseTimeout);
+      if (pauseTimeoutRef.current) {
+        clearTimeout(pauseTimeoutRef.current);
+        pauseTimeoutRef.current = null;
       }
 
-      // Only generate if video is paused and not at the end
-      if (video && video.status === 'ready' && !isGeneratingSummary) {
+      // Only generate if video is paused and not at the end, and chat interface is NOT open
+      if (video && video.status === 'ready' && !isGeneratingSummary && activeViewRef.current !== 'chat') {
         const pausedTime = videoElement.currentTime;
         const videoDuration = video.duration;
         
         // Don't generate if paused at the very end (let 'ended' event handle it)
         if (pausedTime < videoDuration - 1) {
           // Wait 2 seconds after pause before generating summary
-          pauseTimeout = setTimeout(async () => {
-            // Check if video is still paused
-            if (videoElement.paused && !videoElement.ended) {
+          pauseTimeoutRef.current = setTimeout(async () => {
+            // Check if video is still paused and chat interface is still not open
+            if (videoElement.paused && !videoElement.ended && activeViewRef.current !== 'chat') {
               setActiveView('summary');
               await generateSummary(video._id, pausedTime, summaryType);
               hasGeneratedSummaryForPause = true;
             }
+            pauseTimeoutRef.current = null;
           }, 2000); // 2 second delay
         }
       }
@@ -56,9 +64,9 @@ const VideoPlayerPage = ({ video, onBack }) => {
 
     const handleVideoPlay = () => {
       // Clear timeout if user resumes playing
-      if (pauseTimeout) {
-        clearTimeout(pauseTimeout);
-        pauseTimeout = null;
+      if (pauseTimeoutRef.current) {
+        clearTimeout(pauseTimeoutRef.current);
+        pauseTimeoutRef.current = null;
       }
       hasGeneratedSummaryForPause = false;
     };
@@ -73,8 +81,9 @@ const VideoPlayerPage = ({ video, onBack }) => {
       videoElement.removeEventListener('ended', handleVideoEnd);
       videoElement.removeEventListener('pause', handleVideoPause);
       videoElement.removeEventListener('play', handleVideoPlay);
-      if (pauseTimeout) {
-        clearTimeout(pauseTimeout);
+      if (pauseTimeoutRef.current) {
+        clearTimeout(pauseTimeoutRef.current);
+        pauseTimeoutRef.current = null;
       }
     };
   }, [video, isGeneratingSummary, summaryType, generateSummary]);
@@ -91,6 +100,11 @@ const VideoPlayerPage = ({ video, onBack }) => {
 
   const handleChatClick = () => {
     setActiveView('chat');
+    // Clear any pending summary generation timeout when opening chat
+    if (pauseTimeoutRef.current) {
+      clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = null;
+    }
   };
 
   const formatTime = (seconds) => {
